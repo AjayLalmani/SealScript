@@ -36,28 +36,28 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-    try{
-  const { email, password } = req.body;
-  let user = await User.findOne({ email });
+  try {
+    const { email, password } = req.body;
+    let user = await User.findOne({ email });
 
-  if (!user) {
-    return req.status(400).json({ message: "Invalid Credentials" });
-  }
+    if (!user) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
 
-  const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
-  if (!isMatch) {
-    return req.status(400).json({ message: "Invalid Credentials" });
-  }
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
 
-  const payload = { userId: user._id };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: "1h",
-  });
+    const payload = { userId: user._id };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
 
-  res.status(200).json({token, message : "Welcome Back !"});
-}catch(e){
-    console.log("Login error : ",e);
+    res.status(200).json({ token, message: "Welcome Back !" });
+  } catch (e) {
+    console.log("Login error : ", e);
     res.status(500).send("Server Error");
-}
+  }
 };
