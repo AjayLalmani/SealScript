@@ -16,6 +16,7 @@ app.use(express.json());
 const Port = process.env.PORT || 5000;
 
 app.use("/api/auth", require("./routes/auth"));
+app.use("/api/docs", require("./routes/file"));
 
 
 app.listen(Port, () => {

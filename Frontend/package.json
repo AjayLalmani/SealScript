@@ -10,13 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@pdf-viewer/react": "^1.18.0",
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.5",
-    "pdfjs-dist": "^5.4.624",
+    "pdfjs-dist": "^4.4.168",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
+    "react-pdf": "^9.1.0",
+    "react-draggable": "^4.5.0",
     "react-router-dom": "^7.13.0",
     "tailwindcss": "^4.1.18"
   },

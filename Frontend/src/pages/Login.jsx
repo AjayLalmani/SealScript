@@ -1,7 +1,8 @@
 import { useState } from "react";
 import toast, { Toaster } from 'react-hot-toast';
-import axios from "axios";
+
 import {useNavigate} from "react-router-dom"
+import api from "../utils/api";
 
 export default function Login() {
 
@@ -14,16 +15,23 @@ export default function Login() {
         console.log(email)
         console.log(password);
         try{
-            const data = await axios.post("http://localhost:5000/api/auth/login", {email, password});
-            console.log(data);
-            if(data){
-               toast.success(data.data.message);
-               navigate("/dashboard");
+            const response = await api.post("/auth/login", {email, password});
+            console.log(response);
+            if(response){
+              const token = response.data.token; 
+                if (token) {
+                    localStorage.setItem("token", token);
+                } else {
+                    console.error("Token backend se nahi aaya!");
+                }
+               navigate("/dashboard", {state : {message : response.data.message}});
             }
 
         }catch(err){
             const mess = err.response.data.message;
-            toast.error(mess);
+            toast.error(mess, {
+              id : 'login-failed'
+            });
         }
     }
   return (
@@ -66,12 +74,11 @@ export default function Login() {
             autoComplete="password"
           />
           <button
-            className="w-full text-white bg-amber-600 p-1 rounded-xl mt-1 hover:bg-amber-700 font-bold shadow-md hover:shadow-xl active:scale-95 duration-200 transition"
+            className="w-full text-white bg-amber-600 p-2 rounded-xl mt-1 hover:bg-amber-700 font-bold shadow-md hover:shadow-xl active:scale-95 duration-200 transition"
             type="submit"
           >
             Submit
           </button>
-          <Toaster />
         </form>
       </div>
     </div>
