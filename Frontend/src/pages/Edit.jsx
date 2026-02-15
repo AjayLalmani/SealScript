@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import Draggable from "react-draggable"; 
+import Navbar from "../component/Navbar";
 
 // CSS zaroori hai formatting ke liye
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -26,6 +27,8 @@ export default function Edit({path}) {
   const nodeRef = useRef(null);
 
   return (
+    <>
+    <Navbar/>
     <div className="flex flex-col items-center mt-5">
       
       <h3 className="text-lg font-semibold mb-4">Drag the Signature onto the PDF</h3>
@@ -69,5 +72,6 @@ export default function Edit({path}) {
 
       <p className="mt-4 text-gray-700">Page 1 of {numPages}</p>
     </div>
+    </>
   );
 }

@@ -3,16 +3,18 @@ import toast, { Toaster } from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import Navbar from "../component/Navbar";
+import { ClipLoader } from 'react-spinners';
 
-export default function Upload({handleUrl}) {
+export default function Upload({ handleUrl }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files[0];
     if (selectedFile) {
-      if (selectedFile.type != "application/pdf") {
+      if (selectedFile.type !== "application/pdf") {
         toast.error("Only PDF format is supported", {
           id: "different-format",
         });
@@ -33,6 +35,9 @@ export default function Upload({handleUrl}) {
       });
       return;
     }
+
+    setLoading(true);
+
     const formData = new FormData();
     formData.append("myFile", file);
     try {
@@ -44,12 +49,14 @@ export default function Upload({handleUrl}) {
         });
         setFile(null);
       }
-      if(handleUrl) {
-            handleUrl(response.data.path); 
+      if (handleUrl) {
+        handleUrl(response.data.path);
       }
+      setLoading(false)
       navigate("/edit");
     } catch (error) {
       console.log("Backend Error : ", error);
+      setLoading(false); // Ensure loading stops on error
       toast.error("Server Error", {
         id: "server error",
       });
@@ -57,12 +64,19 @@ export default function Upload({handleUrl}) {
   };
 
   return (
-    <div>
+    <div className="min-h-screen bg-slate-50 font-sans">
       <Navbar />
-      <div className="flex justify-center items-center h-screen bg-blue-50 mt-0">
-        <div className="bg-white w-96 p-8 shadow-xl rounded-2xl">
+      
+      <div className="flex justify-center items-center py-20 px-4">
+        <div className="bg-white w-full max-w-md p-8 shadow-xl shadow-slate-200/50 rounded-2xl border border-white">
+          
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-slate-800">Upload Document</h2>
+            <p className="text-slate-500 text-sm mt-1">Select a PDF file to sign or edit.</p>
+          </div>
+
           <form
-            className="max-w-md mx-auto w-full space-y-5"
+            className="w-full space-y-6"
             encType="multipart/form-data"
             onSubmit={handleSubmit}
           >
@@ -70,12 +84,18 @@ export default function Upload({handleUrl}) {
             <div className="flex items-center justify-center w-full">
               <label
                 htmlFor="file-upload"
-                className="flex flex-col items-center justify-center w-full h-52 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-amber-50 hover:border-amber-400 transition-all duration-300 group"
+                // Updated Hover Styles: Amber -> Indigo
+                className={`flex flex-col items-center justify-center w-full h-52 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 group
+                  ${file 
+                    ? "border-emerald-400 bg-emerald-50" // Success State (Green)
+                    : "border-slate-300 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-400" // Default State (Indigo Hover)
+                  }`}
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   {/* Upload Icon */}
                   <svg
-                    className="w-10 h-10 mb-3 text-gray-400 group-hover:text-amber-500 transition-colors duration-300"
+                    className={`w-12 h-12 mb-3 transition-colors duration-300 
+                      ${file ? "text-emerald-500" : "text-slate-400 group-hover:text-indigo-500"}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -91,17 +111,21 @@ export default function Upload({handleUrl}) {
 
                   {/* Text Area */}
                   {file ? (
-                    <p className="mb-2 text-sm text-green-600 font-bold text-center px-2">
-                      Selected: {file.name}
-                    </p>
+                    <div className="text-center">
+                      <p className="mb-1 text-sm text-emerald-700 font-bold px-2">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-emerald-600">Click to change file</p>
+                    </div>
                   ) : (
                     <>
-                      <p className="mb-2 text-sm text-gray-500">
-                        <span className="font-semibold text-amber-600">
-                          Upload a file
-                        </span>
+                      <p className="mb-2 text-sm text-slate-500">
+                        <span className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
+                          Click to upload
+                        </span>{" "}
+                        or drag and drop
                       </p>
-                      <p className="text-xs text-gray-400">PDF up to 10MB</p>
+                      <p className="text-xs text-slate-400">PDF up to 10MB</p>
                     </>
                   )}
                 </div>
@@ -120,9 +144,22 @@ export default function Upload({handleUrl}) {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full text-white bg-amber-600 py-3 rounded-xl font-bold shadow-md hover:bg-amber-700 hover:shadow-lg active:scale-95 transition-all duration-200"
+              disabled={loading}
+              // Updated Button Style: Indigo Gradient (Matches Navbar)
+              className={`w-full text-white py-3.5 rounded-xl font-bold shadow-lg transition-all duration-200 flex justify-center items-center gap-2
+                ${loading 
+                  ? "bg-indigo-400 cursor-not-allowed opacity-80" 
+                  : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 hover:shadow-indigo-500/30 active:scale-95"
+                }`}
             >
-              Submit File
+              {loading ? (
+                <>
+                  <ClipLoader size={20} color="#ffffff" />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                "Continue to Editor"
+              )}
             </button>
           </form>
         </div>

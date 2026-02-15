@@ -7,5 +7,7 @@ const upload = multer({storage});
 const auth = require("../middleware/auth");
 
 router.post('/upload',auth, upload.single('myFile'), fileController.upload);
+router.get('/',auth, fileController.get );
+router.get('/:id',auth, fileController.getById);
 
 module.exports = router;
