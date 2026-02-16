@@ -9,9 +9,14 @@ import { useState } from 'react';
 function App() {
 
   const [url, setUrl] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleUrl = (url)=>{
     setUrl(url);
+  }
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
   }
   
   return (
@@ -19,7 +24,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login/>}/>
-        <Route path="/dashboard" element={<Dashboard handleUrl = {(url)=>handleUrl(url)}/>}/>
+        <Route path="/dashboard" element={<Dashboard handleUrl = {(url)=>handleUrl(url)} searchQuery={searchQuery} handleSearch={handleSearch}/>}/>
         <Route path='/upload' element={<Upload handleUrl = {(url)=>handleUrl(url)}/>}/>
         <Route path='/edit' element={<Edit path={url}/>}/>
       </Routes>

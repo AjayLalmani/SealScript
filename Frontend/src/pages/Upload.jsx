@@ -56,7 +56,7 @@ export default function Upload({ handleUrl }) {
       navigate("/edit");
     } catch (error) {
       console.log("Backend Error : ", error);
-      setLoading(false); // Ensure loading stops on error
+      setLoading(false); 
       toast.error("Server Error", {
         id: "server error",
       });
@@ -80,19 +80,17 @@ export default function Upload({ handleUrl }) {
             encType="multipart/form-data"
             onSubmit={handleSubmit}
           >
-            {/* Drag and Drop Container */}
+          
             <div className="flex items-center justify-center w-full">
               <label
                 htmlFor="file-upload"
-                // Updated Hover Styles: Amber -> Indigo
                 className={`flex flex-col items-center justify-center w-full h-52 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 group
                   ${file 
-                    ? "border-emerald-400 bg-emerald-50" // Success State (Green)
-                    : "border-slate-300 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-400" // Default State (Indigo Hover)
+                    ? "border-emerald-400 bg-emerald-50" 
+                    : "border-slate-300 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-400" 
                   }`}
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  {/* Upload Icon */}
                   <svg
                     className={`w-12 h-12 mb-3 transition-colors duration-300 
                       ${file ? "text-emerald-500" : "text-slate-400 group-hover:text-indigo-500"}`}
@@ -145,7 +143,6 @@ export default function Upload({ handleUrl }) {
             <button
               type="submit"
               disabled={loading}
-              // Updated Button Style: Indigo Gradient (Matches Navbar)
               className={`w-full text-white py-3.5 rounded-xl font-bold shadow-lg transition-all duration-200 flex justify-center items-center gap-2
                 ${loading 
                   ? "bg-indigo-400 cursor-not-allowed opacity-80" 

@@ -1,13 +1,35 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
-export default function Navbar() {
+export default function Navbar({ searchQuery = '', handleSearch }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchInput, setSearchInput] = useState(searchQuery);
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
 
   // Helper to check active state
   const isActive = (path) => location.pathname === path;
 
-  const handleClick = () => {
-    console.log("On Click");
+  const handleSearchSubmit = (e) => {
+    if (e.key === 'Enter' || e.type === 'click') {
+      if (handleSearch) {
+        handleSearch(searchInput);
+      }
+      if (location.pathname !== '/dashboard') {
+        navigate('/dashboard');
+      }
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    if (handleSearch) {
+      handleSearch(value);
+    }
   };
 
   return (
@@ -61,8 +83,10 @@ export default function Navbar() {
               <input
                 type="text"
                 placeholder="Search documents..."
+                value={searchInput}
+                onChange={handleSearchChange}
+                onKeyDown={handleSearchSubmit}
                 className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 sm:text-sm"
-                onClick={handleClick}
               />
             </div>
           </div>
@@ -151,8 +175,10 @@ export default function Navbar() {
             <input
               type="text"
               placeholder="Search documents..."
+              value={searchInput}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchSubmit}
               className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 text-sm shadow-sm"
-              onClick={handleClick}
             />
           </div>
         </div>

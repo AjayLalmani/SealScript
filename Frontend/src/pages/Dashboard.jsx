@@ -5,10 +5,11 @@ import Navbar from '../component/Navbar';
 import api from "../utils/api";
 import { ClipLoader } from 'react-spinners';
 
-export default function Dashboard({ handleUrl }) {
+export default function Dashboard({ handleUrl, searchQuery = '', handleSearch }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [pdfFiles, setPdfFiles] = useState([]);
+  const [filteredPdfFiles, setFilteredPdfFiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
 
@@ -20,6 +21,7 @@ export default function Dashboard({ handleUrl }) {
         const response = await api.get('/docs');
         if (response.data.success) {
           setPdfFiles(response.data.files);
+          setFilteredPdfFiles(response.data.files);
         }
       } catch (error) {
         console.error("Error fetching docs:", error);
@@ -30,6 +32,18 @@ export default function Dashboard({ handleUrl }) {
     };
     fetchDocs();
   }, []);
+
+  // Filter PDFs based on search query
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim() === '') {
+      setFilteredPdfFiles(pdfFiles);
+    } else {
+      const filtered = pdfFiles.filter((file) =>
+        file.fileName?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredPdfFiles(filtered);
+    }
+  }, [searchQuery, pdfFiles]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -45,7 +59,7 @@ export default function Dashboard({ handleUrl }) {
   return (
     // Background updated to Professional Slate-50
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      <Navbar />
+      <Navbar searchQuery={searchQuery} handleSearch={handleSearch} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
@@ -57,7 +71,7 @@ export default function Dashboard({ handleUrl }) {
           </div>
           {!loading && (
             <span className="text-sm font-medium bg-white text-slate-600 py-1.5 px-4 rounded-full border border-slate-200 shadow-sm">
-              {pdfFiles.length} Total Files
+              {filteredPdfFiles.length} {searchQuery ? 'Result(s)' : 'Total Files'}
             </span>
           )}
         </div>
@@ -72,9 +86,9 @@ export default function Dashboard({ handleUrl }) {
         ) : (
           <>
             {/* Grid */}
-            {pdfFiles.length > 0 ? (
+            {filteredPdfFiles.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {pdfFiles.map((file) => (
+                {filteredPdfFiles.map((file) => (
                   <div 
                     key={file._id} 
                     onClick={() => handleViewPdf(file.fileUrl)} 
@@ -113,8 +127,12 @@ export default function Dashboard({ handleUrl }) {
                 <div className="text-indigo-100 mb-4">
                    <svg className="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 </div>
-                <h3 className="text-slate-800 text-lg font-semibold">No documents found</h3>
-                <p className="text-slate-500 mb-6">Get started by creating a new document.</p>
+                <h3 className="text-slate-800 text-lg font-semibold">
+                  {searchQuery ? `No results found for "${searchQuery}"` : 'No documents found'}
+                </h3>
+                <p className="text-slate-500 mb-6">
+                  {searchQuery ? 'Try a different search term' : 'Get started by creating a new document.'}
+                </p>
                 
                 <Link to="/upload" className="text-indigo-600 font-semibold hover:text-indigo-800 hover:underline flex items-center gap-1">
                   Create New Document &rarr;

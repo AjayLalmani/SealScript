@@ -9,7 +9,6 @@ exports.upload = async (req, res) => {
 
     console.log("Original Cloudinary Data:", data);
     const cleanFileName = data.filename.split("/").pop();
-    // --- MAIN CHANGE END ---
 
     const user = req.user.userId;
 
