@@ -1,3 +1,6 @@
+const dns = require('node:dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const { randomUUID } = require("crypto");
 const File = require("../models/File");
 const SignRequest = require("../models/SignRequest");
