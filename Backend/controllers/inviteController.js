@@ -37,8 +37,6 @@ async function sendEmail({ to, subject, html }) {
     host: smtpHost,
     port: smtpPort,
     secure,
-    family: 4,
-    localAddress: "0.0.0.0",
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -46,6 +44,11 @@ async function sendEmail({ to, subject, html }) {
     tls: {
       servername: smtpHost,
       minVersion: "TLSv1.2",
+    },
+    lookup: (hostname, options, callback) => {
+      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+        callback(err, address, family);
+      });
     },
     connectionTimeout: 20000,
     greetingTimeout: 20000,
