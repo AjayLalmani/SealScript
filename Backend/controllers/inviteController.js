@@ -106,7 +106,7 @@ exports.sendInvite = async (req, res) => {
         emailSent: true,
       });
     } catch (emailErr) {
-      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS and SMTP network access): ${emailErr.message}`);
+      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
       return res.status(200).json({
         success: true,
         message: `Link created, but email delivery failed. Share the signing link manually.`,
