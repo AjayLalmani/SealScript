@@ -22,6 +22,10 @@ async function sendEmail({ to, subject, html }) {
     throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
   }
 
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
+  }
+
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || 587);
   const secure = smtpPort === 465;
@@ -120,7 +124,7 @@ exports.sendInvite = async (req, res) => {
         emailSent: true,
       });
     } catch (emailErr) {
-      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS, SMTP_PORT, and SMTP network access): ${emailErr.message}`);
+      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
       return res.status(200).json({
         success: true,
         message: `Link created, but email delivery failed. Share the signing link manually.`,
