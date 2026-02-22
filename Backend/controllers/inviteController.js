@@ -1,5 +1,4 @@
 const { randomUUID } = require("crypto");
-const https = require("https");
 const File = require("../models/File");
 const SignRequest = require("../models/SignRequest");
 
@@ -16,19 +15,33 @@ async function sendEmail({ to, subject, html }) {
   try {
     nodemailer = require("nodemailer");
   } catch {
-    // nodemailer not installed — log the invite link to the server console instead
-    console.log("⚠️  nodemailer not found. Email not sent.");
-    console.log(`📧  To: ${to}`);
-    console.log(`📧  Subject: ${subject}`);
-    return;
+    throw new Error("Email service is not configured on the server (nodemailer missing).");
   }
 
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
+  }
+
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const secure = smtpPort === 465;
+
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: smtpHost,
+    port: smtpPort,
+    secure,
+    family: 4,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    tls: {
+      servername: smtpHost,
+      minVersion: "TLSv1.2",
+    },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
   });
 
   await transporter.sendMail({
@@ -80,20 +93,11 @@ exports.sendInvite = async (req, res) => {
     // Always log the link so it can be tested without email
     console.log(`🔗 Signing link for ${signerEmail}: ${signingLink}`);
 
-    // Send the response immediately to avoid frontend loading hanging
-    res.status(200).json({
-      success: true,
-      message: `Link created. Invitation is being sent to ${signerEmail}...`,
-      signingLink,
-      token,
-      emailSent: "pending",
-    });
-
-    // Attempt email asynchronously in the background — failures are warnings, not fatal errors
-    sendEmail({
-      to: signerEmail,
-      subject: `You've been invited to sign a document — ${file.fileName}`,
-      html: `
+    try {
+      await sendEmail({
+        to: signerEmail,
+        subject: `You've been invited to sign a document — ${file.fileName}`,
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
           <h2 style="color: #4f46e5; margin-bottom: 8px;">📝 Document Signing Request</h2>
           <p style="color: #475569; font-size: 15px;">You have been invited to sign the document:</p>
@@ -105,13 +109,27 @@ exports.sendInvite = async (req, res) => {
           <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not expect this email, you can safely ignore it.</p>
         </div>
       `,
-    })
-      .then(() => {
-        console.log(`📧 Invite email sent successfully to ${signerEmail}`);
-      })
-      .catch((emailErr) => {
-        console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
       });
+
+      console.log(`📧 Invite email sent successfully to ${signerEmail}`);
+      return res.status(200).json({
+        success: true,
+        message: `Link created and email sent to ${signerEmail}.`,
+        signingLink,
+        token,
+        emailSent: true,
+      });
+    } catch (emailErr) {
+      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS, SMTP_PORT, and SMTP network access): ${emailErr.message}`);
+      return res.status(200).json({
+        success: true,
+        message: `Link created, but email delivery failed. Share the signing link manually.`,
+        signingLink,
+        token,
+        emailSent: false,
+        emailError: emailErr.message,
+      });
+    }
 
   } catch (err) {
     console.error("sendInvite error:", err);
