@@ -18,7 +18,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const VIEWER_WIDTH = 600; // must match backend FRONTEND_PDF_WIDTH_PX
 
 // ─── Draggable wrapper ───────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ function DraggableItem({ children, initialPos, onDragStop }) {
       defaultPosition={initialPos}
       onStop={(_, data) => onDragStop(data.x, data.y)}
     >
-      {/* 👇 YAHAN TOP AUR LEFT ZERO ADD KIYA HAI 👇 */}
+
       <div ref={nodeRef} style={{ position: "absolute", top: 0, left: 0, cursor: "move" }}>
         {children}
       </div>
