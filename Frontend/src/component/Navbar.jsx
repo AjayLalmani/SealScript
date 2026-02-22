@@ -32,6 +32,11 @@ export default function Navbar({ searchQuery = '', handleSearch }) {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
   return (
     // Header wrapper
     <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-300">
@@ -143,12 +148,30 @@ export default function Navbar({ searchQuery = '', handleSearch }) {
               <span className="hidden sm:inline">New Document</span>
             </Link>
 
-            {/* User Avatar */}
-            <div className="relative w-9 h-9 sm:w-10 sm:h-10 ml-1 cursor-pointer group flex-shrink-0">
-              <div className="w-full h-full bg-indigo-50 rounded-full flex items-center justify-center border-2 border-white ring-2 ring-transparent group-hover:ring-indigo-200 transition-all shadow-sm">
+            {/* User Avatar with Dropdown */}
+            <div className="relative group pb-2 pt-2 cursor-pointer flex-shrink-0 ml-1">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-indigo-50 rounded-full flex flex-col items-center justify-center border-2 border-white ring-2 ring-transparent group-hover:ring-indigo-200 transition-all shadow-sm">
                 <span className="font-bold text-indigo-700 text-xs sm:text-sm">
                   AL
                 </span>
+              </div>
+              
+              {/* Dropdown Menu */}
+              <div className="absolute right-0 top-full w-48 bg-white rounded-xl shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right mt-1 z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                  <p className="text-sm font-medium text-slate-800">My Account</p>
+                </div>
+                <div className="p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign out
+                  </button>
+                </div>
               </div>
             </div>
           </div>

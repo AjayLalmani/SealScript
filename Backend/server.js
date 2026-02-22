@@ -14,10 +14,11 @@ app.use(cors());
 app.use(express.json());
 
 const Port = process.env.PORT || 5000;
-
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/docs", require("./routes/file"));
-
+app.use("/api/sign", require("./routes/sign"));
+app.use("/api/invite", require("./routes/invite"));
+app.use("/api/audit", require("./routes/audit"));
 
 app.listen(Port, () => {
   console.log(`listening at ${Port}`);

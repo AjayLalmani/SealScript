@@ -1,60 +1,79 @@
 import { useState } from "react";
 import toast from 'react-hot-toast';
-import { useNavigate, Link } from "react-router-dom"; // Link added for Signup (Optional)
+import { useNavigate, Link } from "react-router-dom";
 import api from "../utils/api";
-import { ClipLoader } from 'react-spinners'; // Loader import
+import { ClipLoader } from 'react-spinners';
 
-export default function Login() {
-
+export default function Signup() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // Loading state added
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (evt) => {
     evt.preventDefault();
-    setLoading(true); // Start Loader
+    setLoading(true);
 
     try {
-      const response = await api.post("/auth/login", { email, password });
+      const response = await api.post("/auth/register", { name, email, password });
       console.log(response);
 
       if (response.data) {
         const token = response.data.token;
         if (token) {
           localStorage.setItem("token", token);
-          toast.success("Login Successful!"); // Immediate feedback
+          toast.success("Account Created Successfully!");
           navigate("/dashboard");
         } else {
-          toast.error("Login failed: No token received");
+          toast.error("Registration failed: No token received");
         }
       }
     } catch (err) {
       console.error(err);
-      // Safe error handling (agar server down ho to crash nahi karega)
       const mess = err.response?.data?.message || "Something went wrong!";
       toast.error(mess, {
-        id: 'login-failed'
+        id: 'signup-failed'
       });
     } finally {
-      setLoading(false); // Stop Loader
+      setLoading(false);
     }
   }
 
   return (
-    // Background updated to Slate-50 (Professional Grey)
     <div className="flex justify-center items-center h-screen bg-slate-50 px-4">
       
       {/* Card: White with soft shadow */}
       <div className="w-full max-w-sm p-8 bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-white">
         
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">Welcome Back</h1>
-          <p className="text-slate-500 text-sm">Sign in to manage your documents</p>
+          <h1 className="text-3xl font-bold text-slate-800 mb-2">Create Account</h1>
+          <p className="text-slate-500 text-sm">Join SealScript to manage your documents</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           
+          {/* Name Field */}
+          <div>
+            <label
+              htmlFor="name"
+              className="block text-slate-700 text-sm font-semibold mb-2"
+            >
+              Full Name
+            </label>
+            <input
+              className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 placeholder-slate-400"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(evt) => setName(evt.target.value)}
+              name="name"
+              id="name"
+              autoComplete="name"
+              required
+            />
+          </div>
+
           {/* Email Field */}
           <div>
             <label
@@ -92,7 +111,7 @@ export default function Login() {
               value={password}
               onChange={(evt) => setPassword(evt.target.value)}
               id="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               required
             />
           </div>
@@ -110,19 +129,19 @@ export default function Login() {
             {loading ? (
               <>
                 <ClipLoader size={20} color="#ffffff" />
-                <span>Signing in...</span>
+                <span>Creating Account...</span>
               </>
             ) : (
-              "Sign In"
+              "Sign Up"
             )}
           </button>
         </form>
 
         {/* Optional: Simple Footer Link */}
         <div className="mt-6 text-center text-sm text-slate-500">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-indigo-600 font-semibold hover:underline">
-            Create one
+          Already have an account?{" "}
+          <Link to="/" className="text-indigo-600 font-semibold hover:underline">
+            Sign in
           </Link>
         </div>
 

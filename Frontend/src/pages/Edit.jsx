@@ -3,6 +3,8 @@ import { Document, Page, pdfjs } from "react-pdf";
 import Draggable from "react-draggable";
 import Navbar from "../component/Navbar";
 import SignatureCanvas from 'react-signature-canvas';
+import toast from 'react-hot-toast';
+import api from '../utils/api';
 
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -30,7 +32,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
  * 
  * @param {string} path - URL or path to the PDF file to edit
  */
-export default function Edit({ path }) {
+export default function Edit({ path, fileId }) {
   // ========================================
   // STATE MANAGEMENT
   // ========================================
@@ -59,7 +61,7 @@ export default function Edit({ path }) {
   
   // Text signature input state
   const [textSignatureInput, setTextSignatureInput] = useState("");
-  const [textSignatureFont, setTextSignatureFont] = useState("Brush Script MT");
+  const [textSignatureFont, setTextSignatureFont] = useState("Dancing Script, cursive");
   
   // Drag-and-drop state - tracks which signature is being dragged
   const [draggedSignature, setDraggedSignature] = useState(null);
@@ -67,6 +69,9 @@ export default function Edit({ path }) {
   // User's IP address for metadata tracking
   const [userIP, setUserIP] = useState(null);
   const [isLoadingIP, setIsLoadingIP] = useState(true);
+
+  // Save-to-backend state
+  const [isSaving, setIsSaving] = useState(false);
   
   // ========================================
   // REFS - Direct DOM access for canvas and PDF container
@@ -189,7 +194,7 @@ export default function Edit({ path }) {
     
     // Set font to measure text dimensions
     const fontSize = 48;
-    ctx.font = `${fontSize}px "${fontFamily}", cursive`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
     
     // Measure the actual text width
     const metrics = ctx.measureText(text);
@@ -204,8 +209,7 @@ export default function Edit({ path }) {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Reconfigure text styling (font gets reset after canvas resize)
-    ctx.font = `${fontSize}px "${fontFamily}", cursive`;
+    ctx.font = `${fontSize}px ${fontFamily}`;
     ctx.fillStyle = 'black';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
@@ -356,6 +360,29 @@ export default function Edit({ path }) {
   }, []);
 
   /**
+   * Syncs the final drag position back into the signatures state.
+   * Called by DraggableItem's onStop — this is what makes the correct
+   * coordinates reach the backend when the user clicks Save.
+   * @param {number} id - Signature ID
+   * @param {number} x  - Final X from react-draggable (relative to PDF container)
+   * @param {number} y  - Final Y from react-draggable (relative to PDF container)
+   */
+  const handleUpdateSignaturePos = useCallback((id, x, y) => {
+    setSignatures(prev =>
+      prev.map(sig => sig.id === id ? { ...sig, x, y } : sig)
+    );
+  }, []);
+
+  /**
+   * Same position sync but for text elements.
+   */
+  const handleUpdateTextPos = useCallback((id, x, y) => {
+    setTexts(prev =>
+      prev.map(t => t.id === id ? { ...t, x, y } : t)
+    );
+  }, []);
+
+  /**
    * Clears the signature canvas
    * Allows users to redraw if they make a mistake
    */
@@ -455,6 +482,124 @@ export default function Edit({ path }) {
   }, []);
 
   // ========================================
+  // SAVE PDF HANDLER
+  // Fetches the original PDF, builds a FormData payload with all
+  // placed signatures + metadata, POSTs to the backend to embed
+  // the signature into the PDF with pdf-lib, then opens the result.
+  // ========================================
+  const handleSavePdf = useCallback(async () => {
+    if (signatures.length === 0) {
+      toast.error('Place at least one signature before saving.');
+      return;
+    }
+
+    if (!fileId) {
+      toast.error('Could not identify the source document. Please re-open the file from the dashboard.');
+      return;
+    }
+
+    setIsSaving(true);
+    const toastId = toast.loading('Embedding signatures into PDF…');
+
+    try {
+      // 1. Fetch the original PDF from Cloudinary as a binary blob
+      const pdfResponse = await fetch(path);
+      if (!pdfResponse.ok) throw new Error('Failed to fetch the source PDF.');
+      const pdfBlob = await pdfResponse.blob();
+
+      // Helper to map signatures to their respective pages
+      const pageNodes = Array.from(pdfWrapperRef.current.querySelectorAll('.react-pdf__Page'));
+      
+      const mapElementToPage = (el) => {
+          const elHeight = el.height || el.fontSize || 60; // Approximate height for texts/signatures
+          const elCenterY = el.y + (elHeight / 2);
+          
+          let pageIndex = 0;
+          let pageRelativeY = el.y;
+          
+          for (let i = 0; i < pageNodes.length; i++) {
+              const pageNode = pageNodes[i];
+              // Traverse up offsetParents until we hit pdfWrapperRef
+              let currentElem = pageNode;
+              let pageTop = 0;
+              while (currentElem && currentElem !== pdfWrapperRef.current && currentElem !== document.body) {
+                  pageTop += currentElem.offsetTop;
+                  currentElem = currentElem.offsetParent;
+              }
+              const pageBottom = pageTop + pageNode.offsetHeight;
+              
+              if (elCenterY >= pageTop && elCenterY <= pageBottom) {
+                  return { ...el, pageIndex: i, y: el.y - pageTop };
+              }
+          }
+          
+          // Fallback if not strictly inside a page (e.g., in a margin gap)
+          let closestIndex = 0;
+          let minDistance = Infinity;
+          let closestRelativeY = el.y;
+          
+          for (let i = 0; i < pageNodes.length; i++) {
+              const pageNode = pageNodes[i];
+              let currentElem = pageNode;
+              let pageTop = 0;
+              while (currentElem && currentElem !== pdfWrapperRef.current && currentElem !== document.body) {
+                  pageTop += currentElem.offsetTop;
+                  currentElem = currentElem.offsetParent;
+              }
+              const pageBottom = pageTop + pageNode.offsetHeight;
+              
+              let distance = 0;
+              if (elCenterY < pageTop) distance = pageTop - elCenterY;
+              else if (elCenterY > pageBottom) distance = elCenterY - pageBottom;
+              
+              if (distance < minDistance) {
+                  minDistance = distance;
+                  closestIndex = i;
+                  closestRelativeY = el.y - pageTop;
+              }
+          }
+          
+          return { ...el, pageIndex: closestIndex, y: closestRelativeY };
+      };
+
+      const mappedSignatures = signatures.map(mapElementToPage);
+
+      // 2. Build multipart/form-data payload
+      const formData = new FormData();
+      formData.append('pdf', pdfBlob, 'document.pdf');
+      formData.append('signatures', JSON.stringify(mappedSignatures));
+      formData.append('fileId', fileId);
+
+      // 3. POST to the backend — api.js already attaches x-auth-token header
+      //    We must NOT set Content-Type manually; the browser sets it with the boundary
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/sign/embed`,
+        {
+          method: 'POST',
+          headers: { 'x-auth-token': token },
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Server error during signing.');
+      }
+
+      // 4. Success — open signed PDF in a new tab
+      toast.success('PDF signed successfully! Opening…', { id: toastId });
+      window.open(data.signedUrl, '_blank');
+    } catch (err) {
+      console.error('❌ handleSavePdf error:', err);
+      toast.error(err.message || 'Failed to save PDF.', { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [signatures, path, fileId]);
+
+  // ========================================
   // RENDER - Main UI Structure
   // ========================================
   return (
@@ -483,13 +628,17 @@ export default function Edit({ path }) {
               onLoadSuccess={({ numPages }) => setNumPages(numPages)}
               loading={<div className="h-96 flex items-center justify-center">Loading PDF...</div>}
             >
-              {/* Currently showing only page 1 - could be extended for multi-page support */}
-              <Page 
-                pageNumber={1} 
-                width={pdfWidth} 
-                renderTextLayer={false}        // Disable text selection layer for cleaner editing
-                renderAnnotationLayer={false}   // Disable annotation layer
-              />
+              {/* Render all pages for multi-page support */}
+              {Array.from(new Array(numPages), (el, index) => (
+                <div key={`page_${index + 1}`} className="mb-4 shadow-sm bg-white">
+                  <Page 
+                    pageNumber={index + 1} 
+                    width={pdfWidth} 
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </div>
+              ))}
             </Document>
 
             {/* ========================================
@@ -497,7 +646,11 @@ export default function Edit({ path }) {
                 All signatures are rendered as draggable, resizable images
                 ======================================== */}
             {signatures.map((sig) => (
-              <DraggableItem key={sig.id} initialPos={{x: sig.x, y: sig.y}}>
+              <DraggableItem
+                key={sig.id}
+                initialPos={{x: sig.x, y: sig.y}}
+                onDragStop={(x, y) => handleUpdateSignaturePos(sig.id, x, y)}
+              >
                 {/* Signature container with hover effects and resize handle */}
                 <div 
                   className="group relative cursor-move"
@@ -573,7 +726,11 @@ export default function Edit({ path }) {
                 All text elements are rendered as editable inputs
                 ======================================== */}
             {texts.map((textItem) => (
-              <DraggableItem key={textItem.id} initialPos={{x: textItem.x, y: textItem.y}}>
+              <DraggableItem
+                key={textItem.id}
+                initialPos={{x: textItem.x, y: textItem.y}}
+                onDragStop={(x, y) => handleUpdateTextPos(textItem.id, x, y)}
+              >
                  {/* Text container with hover effects */}
                  <div className="group relative inline-block hover:border-2 hover:border-blue-500 cursor-move p-1">
                     {/* Editable text input */}
@@ -621,29 +778,6 @@ export default function Edit({ path }) {
             ======================================== */}
         <div className="w-80 bg-white shadow-xl border-l border-gray-200 p-6 flex flex-col gap-6 z-20 overflow-y-auto max-h-screen">
             <h2 className="text-xl font-bold text-gray-800 border-b pb-2">Editing Tools</h2>
-
-            {/* IP Address Status Indicator */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs">
-              <div className="flex items-center gap-2">
-                {isLoadingIP ? (
-                  <>
-                    {/* Loading spinner */}
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-gray-600">Loading IP address...</span>
-                  </>
-                ) : userIP === 'unknown' ? (
-                  <>
-                    <span className="text-red-500">⚠️</span>
-                    <span className="text-gray-600">IP: Failed to detect</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-green-500">✓</span>
-                    <span className="text-gray-600">IP: <span className="font-mono font-semibold">{userIP}</span></span>
-                  </>
-                )}
-              </div>
-            </div>
 
             {/* Tool buttons */}
             <div className="flex flex-col gap-4">
@@ -743,10 +877,34 @@ export default function Edit({ path }) {
               </ul>
             </div>
 
-            {/* Save button at bottom */}
-            <div className="mt-auto border-t pt-4">
-               <button className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 shadow-md hover:shadow-lg transition-all">
-                  💾 Save PDF
+            {/* Tool buttons and Save/Download */}
+            <div className="mt-auto border-t pt-4 space-y-3">
+               <button
+                 onClick={() => {
+                   if (path) {
+                     window.open(path, '_blank');
+                   } else {
+                     toast.error("No document available to download.");
+                   }
+                 }}
+                 className="w-full bg-white text-gray-700 border-2 border-gray-200 py-3 rounded-lg font-bold hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all flex items-center justify-center gap-2"
+               >
+                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                 </svg>
+                 Download Original PDF
+               </button>
+
+               <button
+                 onClick={handleSavePdf}
+                 disabled={isSaving || signatures.length === 0}
+                 className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+               >
+                 {isSaving ? (
+                   <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> Embedding…</>
+                 ) : (
+                   <>💾 Save Signed PDF</>
+                 )}
                </button>
             </div>
         </div>
@@ -855,12 +1013,12 @@ export default function Edit({ path }) {
                 value={textSignatureFont}
                 onChange={(e) => setTextSignatureFont(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-base"
+                style={{ fontFamily: textSignatureFont }}
               >
-                <option value="Brush Script MT">Brush Script (Elegant)</option>
-                <option value="Lucida Handwriting">Lucida Handwriting (Classic)</option>
-                <option value="Segoe Script">Segoe Script (Modern)</option>
-                <option value="Monotype Corsiva">Corsiva (Formal)</option>
-                <option value="Freestyle Script">Freestyle (Casual)</option>
+                <option value="Dancing Script, cursive" style={{ fontFamily: "Dancing Script, cursive" }}>Dancing Script (Cursive)</option>
+                <option value="Pacifico, cursive" style={{ fontFamily: "Pacifico, cursive" }}>Pacifico</option>
+                <option value="Caveat, cursive" style={{ fontFamily: "Caveat, cursive" }}>Caveat (Handwritten)</option>
+                <option value="serif" style={{ fontFamily: "serif" }}>Serif (Classic)</option>
               </select>
             </div>
 
@@ -869,7 +1027,7 @@ export default function Edit({ path }) {
               <div className="mb-6 border-2 border-dashed border-purple-200 rounded-xl bg-gradient-to-br from-purple-50 to-white p-6 min-h-[100px] flex items-center justify-center">
                 <div 
                   style={{ 
-                    fontFamily: `"${textSignatureFont}", cursive`,
+                    fontFamily: textSignatureFont,
                     fontSize: '48px',
                     color: '#000'
                   }}
@@ -921,18 +1079,29 @@ export default function Edit({ path }) {
  * @param {ReactNode} children - The element to make draggable (signature or text)
  * @param {Object} initialPos - Starting position {x, y} on the PDF
  */
-const DraggableItem = ({ children, initialPos }) => {
-  // nodeRef is required in React 18+ to avoid findDOMNode deprecation warnings
+/**
+ * DraggableItem
+ * -------------
+ * Wraps any element in react-draggable and calls onDragStop(x, y) when the
+ * user finishes dragging so the parent can sync the final position into state.
+ * This is critical: without onDragStop, the parent state holds the original
+ * drop coordinates and the backend embeds the signature at the wrong position.
+ */
+const DraggableItem = ({ children, initialPos, onDragStop }) => {
   const nodeRef = useRef(null);
-  
+
+  const handleStop = useCallback((_e, data) => {
+    // data.x / data.y are the final pixel offsets relative to the PDF container
+    if (onDragStop) onDragStop(data.x, data.y);
+  }, [onDragStop]);
+
   return (
-    <Draggable 
-      nodeRef={nodeRef}                    // Pass ref directly to avoid findDOMNode
-      defaultPosition={initialPos}         // Starting position from state
-      bounds="parent"                      // Constrain dragging to PDF container
-      cancel="input,button,select"         // Don't drag when interacting with these elements
+    <Draggable
+      nodeRef={nodeRef}
+      defaultPosition={initialPos}
+      cancel="input,button,select"
+      onStop={handleStop}
     >
-      {/* Absolutely positioned wrapper that sits on top of the PDF */}
       <div ref={nodeRef} className="absolute top-0 left-0 z-10">
         {children}
       </div>
