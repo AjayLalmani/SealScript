@@ -77,43 +77,42 @@ exports.sendInvite = async (req, res) => {
     const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
     const signingLink = `${frontendUrl}/sign/${token}`;
 
-    // Attempt email — failures are warnings, not fatal errors
-    let emailSent = false;
-    try {
-      await sendEmail({
-        to: signerEmail,
-        subject: `You've been invited to sign a document — ${file.fileName}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
-            <h2 style="color: #4f46e5; margin-bottom: 8px;">📝 Document Signing Request</h2>
-            <p style="color: #475569; font-size: 15px;">You have been invited to sign the document:</p>
-            <p style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; font-weight: bold; color: #1e293b;">${file.fileName}</p>
-            <p style="color: #475569; font-size: 14px;">Click the button below to review and sign it. This link is valid for <strong>48 hours</strong> and can only be used once.</p>
-            <a href="${signingLink}" style="display:inline-block; margin-top: 16px; padding: 12px 28px; background: #4f46e5; color: #ffffff; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
-              Sign Document →
-            </a>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not expect this email, you can safely ignore it.</p>
-          </div>
-        `,
-      });
-      emailSent = true;
-      console.log(`📧 Invite email sent to ${signerEmail}`);
-    } catch (emailErr) {
-      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
-    }
-
     // Always log the link so it can be tested without email
     console.log(`🔗 Signing link for ${signerEmail}: ${signingLink}`);
 
-    return res.status(200).json({
+    // Send the response immediately to avoid frontend loading hanging
+    res.status(200).json({
       success: true,
-      message: emailSent
-        ? `Invitation sent to ${signerEmail}`
-        : `Link created (email not configured — see server console)`,
+      message: `Link created. Invitation is being sent to ${signerEmail}...`,
       signingLink,
       token,
-      emailSent,
+      emailSent: "pending",
     });
+
+    // Attempt email asynchronously in the background — failures are warnings, not fatal errors
+    sendEmail({
+      to: signerEmail,
+      subject: `You've been invited to sign a document — ${file.fileName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <h2 style="color: #4f46e5; margin-bottom: 8px;">📝 Document Signing Request</h2>
+          <p style="color: #475569; font-size: 15px;">You have been invited to sign the document:</p>
+          <p style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; font-weight: bold; color: #1e293b;">${file.fileName}</p>
+          <p style="color: #475569; font-size: 14px;">Click the button below to review and sign it. This link is valid for <strong>48 hours</strong> and can only be used once.</p>
+          <a href="${signingLink}" style="display:inline-block; margin-top: 16px; padding: 12px 28px; background: #4f46e5; color: #ffffff; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
+            Sign Document →
+          </a>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">If you did not expect this email, you can safely ignore it.</p>
+        </div>
+      `,
+    })
+      .then(() => {
+        console.log(`📧 Invite email sent successfully to ${signerEmail}`);
+      })
+      .catch((emailErr) => {
+        console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
+      });
+
   } catch (err) {
     console.error("sendInvite error:", err);
     return res.status(500).json({ message: "Failed to send invitation." });
