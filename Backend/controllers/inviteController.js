@@ -1,66 +1,35 @@
-const dns = require('node:dns');
-dns.setDefaultResultOrder('ipv4first');
-
 const { randomUUID } = require("crypto");
 const File = require("../models/File");
 const SignRequest = require("../models/SignRequest");
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lightweight email helper using Node's built-in https to call Gmail SMTP API
-// via the nodemailer-free approach: raw SMTP over TLS using the net/tls module.
-// 
-// Since embedding a raw SMTP client is complex, we use the simpler approach:
-// lazy-require nodemailer if available, otherwise log the link to console only.
+// Modern Email Helper using Brevo API via HTTP fetch (No SMTP block issues)
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendEmail({ to, subject, html }) {
-  // Try nodemailer if installed
-  let nodemailer;
-  try {
-    nodemailer = require("nodemailer");
-  } catch {
-    throw new Error("Email service is not configured on the server (nodemailer missing).");
+  if (!process.env.BREVO_API_KEY || !process.env.SENDER_EMAIL) {
+    throw new Error("BREVO_API_KEY or SENDER_EMAIL are not configured.");
   }
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
-  }
-
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
-  }
-
-  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const secure = smtpPort === 465;
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+  // HTTPS ke through API call (Render isko block nahi karega)
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "api-key": process.env.BREVO_API_KEY
     },
-    tls: {
-      servername: smtpHost,
-      minVersion: "TLSv1.2",
-    },
-    lookup: (hostname, options, callback) => {
-      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-        callback(err, address, family);
-      });
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 30000,
+    body: JSON.stringify({
+      sender: { email: process.env.SENDER_EMAIL, name: "SealScript" },
+      to: [{ email: to }],
+      subject: subject,
+      htmlContent: html
+    })
   });
 
-  await transporter.sendMail({
-    from: `"SealScript" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    html,
-  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Email API failed: ${JSON.stringify(errorData)}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,7 +100,7 @@ exports.sendInvite = async (req, res) => {
         emailSent: true,
       });
     } catch (emailErr) {
-      console.warn(`⚠️  Email failed (check EMAIL_USER/EMAIL_PASS in .env): ${emailErr.message}`);
+      console.warn(`⚠️ Email failed (check BREVO_API_KEY/SENDER_EMAIL in .env): ${emailErr.message}`);
       return res.status(200).json({
         success: true,
         message: `Link created, but email delivery failed. Share the signing link manually.`,
