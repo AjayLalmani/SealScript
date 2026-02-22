@@ -22,12 +22,30 @@ async function sendEmail({ to, subject, html }) {
     throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
   }
 
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error("EMAIL_USER/EMAIL_PASS are not configured.");
+  }
+
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const secure = smtpPort === 465;
+
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: smtpHost,
+    port: smtpPort,
+    secure,
+    family: 4,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    tls: {
+      servername: smtpHost,
+      minVersion: "TLSv1.2",
+    },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
   });
 
   await transporter.sendMail({
