@@ -3,6 +3,12 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const mongoose = require("mongoose");
+const dns = require("dns");
+
+// Prefer IPv4 for outbound SMTP/API calls in environments without IPv6 routing.
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const dbUrl = process.env.MONGO_URL;
 mongoose
