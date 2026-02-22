@@ -74,7 +74,7 @@ exports.sendInvite = async (req, res) => {
       createdBy: userId,
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
     const signingLink = `${frontendUrl}/sign/${token}`;
 
     // Attempt email — failures are warnings, not fatal errors
