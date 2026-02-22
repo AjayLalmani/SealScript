@@ -2,7 +2,7 @@ import axios from "axios";
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-    baseURL : "http://localhost:5000/api",
+    baseURL : "https://seal-script.vercel.app/api",
 });
 
 api.interceptors.request.use((config)=>{
