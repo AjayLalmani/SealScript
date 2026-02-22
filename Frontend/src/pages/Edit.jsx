@@ -572,9 +572,10 @@ export default function Edit({ path, fileId }) {
 
       // 3. POST to the backend — api.js already attaches x-auth-token header
       //    We must NOT set Content-Type manually; the browser sets it with the boundary
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/sign/embed`,
+        `${baseUrl}/api/sign/embed`,
         {
           method: 'POST',
           headers: { 'x-auth-token': token },

@@ -18,7 +18,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
 const VIEWER_WIDTH = 600; // must match backend FRONTEND_PDF_WIDTH_PX
 
 // ─── Draggable wrapper ───────────────────────────────────────────────────────
